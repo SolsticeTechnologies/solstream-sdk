@@ -1,0 +1,22 @@
+{
+  "name": "solstream-test-app",
+  "version": "0.1.0",
+  "description": "CLI test app for the Solstream SDK",
+  "private": true,
+  "scripts": {
+    "test:accounts": "ts-node src/test-accounts.ts",
+    "test:transactions": "ts-node src/test-transactions.ts",
+    "test:blocks": "ts-node src/test-blocks.ts",
+    "test:slots": "ts-node src/test-slots.ts",
+    "test:all": "ts-node src/run-all.ts"
+  },
+  "dependencies": {
+    "@solstice/solstream-sdk": "file:../js",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0"
+  }
+}
