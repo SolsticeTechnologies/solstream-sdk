@@ -1,0 +1,137 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "geyser.proto";
+
+package streaming;
+
+service StreamingService {
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeUpdate);
+  rpc SubscribeBlocks(SubscribeBlockRequest) returns (stream SubscribeBlockUpdate);
+}
+
+enum CommitmentLevel {
+  PROCESSED = 0;
+  CONFIRMED = 1;
+  FINALIZED = 2;
+}
+
+message SubscribeRequest {
+  string client_id = 1;
+  map<string, SubscribeRequestFilterAccounts> accounts = 2;
+  map<string, SubscribeRequestFilterSlots> slots = 3;
+  map<string, SubscribeRequestFilterTransactions> transactions = 4;
+
+  optional CommitmentLevel commitment = 5;
+  optional uint64 from_slot = 6;
+  optional bool include_block_infos = 7;
+  optional bool include_entries = 8;
+  repeated SubscribeRequestAccountsDataSlice accounts_data_slice = 9;
+}
+
+message SubscribeBlockRequest {
+  string client_id = 1;
+
+  repeated string account_include = 2;
+  optional bool include_transactions = 3;
+  optional bool include_accounts = 4;
+  optional bool include_entries = 5;
+
+  optional uint64 from_slot = 6;
+}
+
+message SubscribeRequestFilterAccounts {
+  repeated string account = 1;
+  repeated string owner = 2;
+  repeated SubscribeRequestFilterAccountsFilter filters = 3;
+  optional bool nonempty_txn_signature = 4;
+}
+
+message SubscribeRequestFilterAccountsFilter {
+  oneof filter {
+    SubscribeRequestFilterAccountsFilterMemcmp memcmp = 1;
+    uint64 datasize = 2;
+    bool token_account_state = 3;
+    SubscribeRequestFilterAccountsFilterLamports lamports = 4;
+  }
+}
+
+message SubscribeRequestFilterAccountsFilterMemcmp {
+  uint64 offset = 1;
+  oneof data {
+    bytes bytes = 2;
+    string base58 = 3;
+    string base64 = 4;
+  }
+}
+
+message SubscribeRequestFilterAccountsFilterLamports {
+  oneof cmp {
+    uint64 eq = 1;
+    uint64 ne = 2;
+    uint64 lt = 3;
+    uint64 gt = 4;
+  }
+}
+
+message SubscribeRequestFilterSlots {
+  optional bool filter_by_commitment = 1;
+}
+
+message SubscribeRequestFilterTransactions {
+  optional bool vote = 1;
+  optional bool failed = 2;
+  optional string signature = 3;
+  repeated string account_include = 4;
+  repeated string account_exclude = 5;
+  repeated string account_required = 6;
+}
+
+message SubscribeRequestAccountsDataSlice {
+  uint64 offset = 1;
+  uint64 length = 2;
+}
+
+message SubscribeUpdate {
+  repeated string filters = 1;
+  oneof update {
+    SubscribeUpdateAccount account = 2;
+    SubscribeUpdateSlot slot = 3;
+    SubscribeUpdateTransaction transaction = 4;
+    SubscribeUpdateBlockMeta block_meta = 5;
+    SubscribeUpdateEntry entry = 6;
+  }
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message SubscribeUpdateAccount {
+  geyser.AccountInfo account = 1;
+  uint64 slot = 2;
+  bool is_startup = 3;
+}
+
+message SubscribeUpdateSlot {
+  geyser.SlotInfo slot_info = 1;
+}
+
+message SubscribeUpdateTransaction {
+  geyser.TransactionInfo transaction = 1;
+  uint64 slot = 2;
+}
+
+message SubscribeBlockUpdate {
+  geyser.BlockInfo block = 1;
+  uint64 updated_account_count = 2;
+  repeated geyser.AccountInfo accounts = 3;
+  repeated geyser.TransactionInfo transactions = 4;
+  repeated geyser.EntryInfo entries = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message SubscribeUpdateBlockMeta {
+  geyser.BlockInfo block_info = 1;
+}
+
+message SubscribeUpdateEntry {
+  geyser.EntryInfo entry = 1;
+}

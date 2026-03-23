@@ -1,0 +1,56 @@
+{
+  "name": "@solstice/solstream-sdk",
+  "version": "0.1.0",
+  "description": "High-performance gRPC client for real-time Solana data streaming via Solstream",
+  "author": "Solstice Staking",
+  "license": "MIT",
+  "homepage": "https://github.com/SolsticeStaking/solstream-sdk-internal",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SolsticeStaking/solstream-sdk-internal.git",
+    "directory": "js"
+  },
+  "bugs": {
+    "url": "https://github.com/SolsticeStaking/solstream-sdk-internal/issues"
+  },
+  "keywords": [
+    "solana",
+    "grpc",
+    "streaming",
+    "geyser",
+    "solstream",
+    "solstice",
+    "blockchain",
+    "real-time"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "proto",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "example:accounts": "ts-node examples/subscribe-accounts.ts",
+    "example:transactions": "ts-node examples/subscribe-transactions.ts",
+    "example:blocks": "ts-node examples/subscribe-blocks.ts",
+    "example:slots": "ts-node examples/subscribe-slots.ts"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.11.0",
+    "@grpc/proto-loader": "^0.7.13",
+    "google-proto-files": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0"
+  }
+}
