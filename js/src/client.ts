@@ -66,23 +66,33 @@ function getServiceClient(
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makeCredentials(endpoint: string, apiKey?: string): grpc.ChannelCredentials {
+function makeCredentials(
+  endpoint: string,
+  apiKey?: string,
+): { channelCreds: grpc.ChannelCredentials; callMeta: grpc.Metadata | undefined } {
   const isSecure =
     endpoint.startsWith('https://') || endpoint.startsWith('grpcs://');
-  const base = isSecure
-    ? grpc.credentials.createSsl()
-    : grpc.credentials.createInsecure();
 
-  if (!apiKey) return base;
+  if (isSecure) {
+    const base = grpc.credentials.createSsl();
+    if (!apiKey) return { channelCreds: base, callMeta: undefined };
+    const callCreds = grpc.credentials.createFromMetadataGenerator(
+      (_params, callback) => {
+        const meta = new grpc.Metadata();
+        meta.add('x-api-key', apiKey);
+        callback(null, meta);
+      },
+    );
+    return {
+      channelCreds: grpc.credentials.combineChannelCredentials(base, callCreds),
+      callMeta: undefined,
+    };
+  }
 
-  const callCreds = grpc.credentials.createFromMetadataGenerator(
-    (_params, callback) => {
-      const meta = new grpc.Metadata();
-      meta.add('x-api-key', apiKey);
-      callback(null, meta);
-    },
-  );
-  return grpc.credentials.combineChannelCredentials(base, callCreds);
+  // Insecure: can't combine credentials, pass API key as per-call metadata instead
+  const callMeta = apiKey ? new grpc.Metadata() : undefined;
+  if (apiKey && callMeta) callMeta.add('x-api-key', apiKey);
+  return { channelCreds: grpc.credentials.createInsecure(), callMeta };
 }
 
 function normalizeEndpoint(endpoint: string): string {
@@ -150,18 +160,20 @@ export async function subscribe(
     replay = false,
   } = config;
 
-  const credentials = makeCredentials(config.endpoint, config.apiKey);
+  const { channelCreds, callMeta } = makeCredentials(config.endpoint, config.apiKey);
   const host = normalizeEndpoint(config.endpoint);
 
   const connect = (attempt: number): void => {
     if (state.cancelled) return;
 
-    const client = getServiceClient(host, credentials, config.channelOptions);
+    const client = getServiceClient(host, channelCreds, config.channelOptions);
 
     // Inject replay fromSlot when enabled and we have a last-known slot
     const req = buildRequest(request, replay, state.lastSlot);
 
-    const call: grpc.ClientReadableStream<any> = (client as any).subscribe(req);
+    const call: grpc.ClientReadableStream<any> = callMeta
+      ? (client as any).subscribe(req, callMeta)
+      : (client as any).subscribe(req);
     state.call = call;
 
     call.on('data', async (raw: any) => {
@@ -265,13 +277,13 @@ export async function subscribeBlocks(
     replay = false,
   } = config;
 
-  const credentials = makeCredentials(config.endpoint, config.apiKey);
+  const { channelCreds, callMeta } = makeCredentials(config.endpoint, config.apiKey);
   const host = normalizeEndpoint(config.endpoint);
 
   const connect = (attempt: number): void => {
     if (state.cancelled) return;
 
-    const client = getServiceClient(host, credentials, config.channelOptions);
+    const client = getServiceClient(host, channelCreds, config.channelOptions);
 
     // Inject replay fromSlot when enabled
     const req: SubscribeBlockRequest =
@@ -279,7 +291,9 @@ export async function subscribeBlocks(
         ? { ...request, fromSlot: state.lastSlot }
         : request;
 
-    const call: grpc.ClientReadableStream<any> = (client as any).subscribeBlocks(req);
+    const call: grpc.ClientReadableStream<any> = callMeta
+      ? (client as any).subscribeBlocks(req, callMeta)
+      : (client as any).subscribeBlocks(req);
     state.call = call;
 
     call.on('data', async (raw: any) => {
