@@ -18,22 +18,44 @@ npm install
 
 ## Run tests
 
+One-shot tests — each runs for `TEST_DURATION_SECS` seconds then exits.
+
 ```bash
-# Slot updates (fastest feedback — ~400ms/slot)
-npm run test:slots
-
-# Non-vote transactions
-npm run test:transactions
-
-# Full block updates (with transactions)
-npm run test:blocks
-
-# All account updates
-npm run test:accounts
-
-# Run all tests sequentially
-npm run test:all
+npm run test:slots         # Slot updates (~400ms/slot)
+npm run test:transactions  # Non-vote transactions
+npm run test:blocks        # Full block updates (with transactions)
+npm run test:accounts      # All account updates
+npm run test:all           # Run all four sequentially
 ```
+
+## Run monitors
+
+Long-running streams — connect once and stream indefinitely. Stop with `Ctrl+C`.
+
+```bash
+npm run monitor:slots
+npm run monitor:transactions
+npm run monitor:blocks
+npm run monitor:accounts
+```
+
+## Run with Docker
+
+All four monitors running continuously in separate containers:
+
+```bash
+# Build and start all monitors
+docker compose up --build
+
+# Detached (background)
+docker compose up --build -d
+docker compose logs -f
+
+# Single monitor only
+docker compose up --build monitor-slots
+```
+
+Each container uses `restart: unless-stopped` — it will automatically recover if the process crashes or the stream drops.
 
 ## Options
 
@@ -41,7 +63,7 @@ npm run test:all
 |---|---|---|
 | `SOLSTREAM_ENDPOINT` | required | gRPC endpoint URL |
 | `SOLSTREAM_API_KEY` | — | API key (sent as `x-api-key` header) |
-| `TEST_DURATION_SECS` | `30` | How long each test runs before auto-stopping |
+| `TEST_DURATION_SECS` | `30` | How long each **test** runs (monitors ignore this) |
 
 ## What you should see
 
@@ -53,4 +75,4 @@ npm run test:all
 
 **Accounts** — Every account write, with pubkey, lamport balance, and data size.
 
-If any test shows no output for >5 seconds, check your endpoint and API key.
+If any stream shows no output for >5 seconds, check your endpoint and API key.

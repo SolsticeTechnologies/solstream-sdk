@@ -26,6 +26,12 @@ Both RPCs support:
 
 ---
 
+## Test App
+
+[`test-app/`](./test-app) contains a CLI app for validating the SDK against a live endpoint. It includes one-shot tests and long-running monitors that stream indefinitely. See [`test-app/README.md`](./test-app/README.md) for setup and usage.
+
+---
+
 ## JavaScript / TypeScript
 
 See [`js/README.md`](./js/README.md) for full documentation.

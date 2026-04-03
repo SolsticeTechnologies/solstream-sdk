@@ -8,7 +8,11 @@
     "test:transactions": "ts-node src/test-transactions.ts",
     "test:blocks": "ts-node src/test-blocks.ts",
     "test:slots": "ts-node src/test-slots.ts",
-    "test:all": "ts-node src/run-all.ts"
+    "test:all": "ts-node src/run-all.ts",
+    "monitor:slots": "ts-node src/monitor-slots.ts",
+    "monitor:transactions": "ts-node src/monitor-transactions.ts",
+    "monitor:blocks": "ts-node src/monitor-blocks.ts",
+    "monitor:accounts": "ts-node src/monitor-accounts.ts"
   },
   "dependencies": {
     "@solstice/solstream-sdk": "file:../js",
