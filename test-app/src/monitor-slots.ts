@@ -4,16 +4,19 @@
  *   npm run monitor:slots
  *
  * Subscribes to all slot status changes. Streams forever until SIGINT.
+ * Sends an email alert via AWS SES if the stream goes silent.
  */
 
 import { subscribe, CommitmentLevel, SubscribeUpdate } from '@solstice/solstream-sdk';
-import { config } from './config';
+import { config, alertConfig, ALERT_SILENCE_SECS } from './config';
 import { banner, info, success, warn, error, stat, separator } from './logger';
+import { createHeartbeat } from './alerter';
 
 async function main() {
   banner('MONITOR: Slot Updates');
   info('CONFIG', `endpoint=${config.endpoint}`);
   info('CONFIG', 'running indefinitely  filterByCommitment=false');
+  if (alertConfig) info('ALERT', `silence threshold=${ALERT_SILENCE_SECS}s  to=${alertConfig.to.join(', ')}`);
   separator();
 
   let count = 0;
@@ -21,6 +24,10 @@ async function main() {
   let minSlot = BigInt(Number.MAX_SAFE_INTEGER);
   let maxSlot = BigInt(0);
   const startMs = Date.now();
+
+  const heartbeat = alertConfig
+    ? createHeartbeat(alertConfig, 'monitor-slots', ALERT_SILENCE_SECS)
+    : null;
 
   const stream = await subscribe(
     config,
@@ -33,6 +40,7 @@ async function main() {
     async (update: SubscribeUpdate) => {
       if (!update.slot) return;
       count++;
+      heartbeat?.();
 
       const { slotInfo } = update.slot;
       const slot = slotInfo?.slot ?? BigInt(0);

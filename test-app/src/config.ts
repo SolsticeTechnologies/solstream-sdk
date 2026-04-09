@@ -25,3 +25,14 @@ export const config: SolstreamConfig = {
 
 export const TEST_DURATION_MS =
   parseInt(process.env['TEST_DURATION_SECS'] ?? '30', 10) * 1_000;
+
+export const alertConfig = process.env['ALERT_FROM'] && process.env['ALERT_TO']
+  ? {
+      region: process.env['AWS_REGION'] ?? 'us-east-1',
+      from: process.env['ALERT_FROM']!,
+      to: process.env['ALERT_TO']!.split(',').map(s => s.trim()),
+    }
+  : null;
+
+export const ALERT_SILENCE_SECS =
+  parseInt(process.env['ALERT_SILENCE_SECS'] ?? '60', 10);

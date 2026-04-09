@@ -4,22 +4,29 @@
  *   npm run monitor:blocks
  *
  * Subscribes to full block updates with transactions. Streams forever until SIGINT.
+ * Sends an email alert via AWS SES if the stream goes silent.
  */
 
 import { subscribeBlocks, SubscribeBlockUpdate } from '@solstice/solstream-sdk';
-import { config } from './config';
+import { config, alertConfig, ALERT_SILENCE_SECS } from './config';
 import { banner, info, success, error, stat, separator, lamportsToSol } from './logger';
+import { createHeartbeat } from './alerter';
 
 async function main() {
   banner('MONITOR: Block Updates');
   info('CONFIG', `endpoint=${config.endpoint}`);
   info('CONFIG', 'running indefinitely  includeTransactions=true');
+  if (alertConfig) info('ALERT', `silence threshold=${ALERT_SILENCE_SECS}s  to=${alertConfig.to.join(', ')}`);
   separator();
 
   let blockCount = 0;
   let totalTxns = 0;
   let totalFees = BigInt(0);
   const startMs = Date.now();
+
+  const heartbeat = alertConfig
+    ? createHeartbeat(alertConfig, 'monitor-blocks', ALERT_SILENCE_SECS)
+    : null;
 
   const stream = await subscribeBlocks(
     config,
@@ -30,6 +37,8 @@ async function main() {
     },
     async (update: SubscribeBlockUpdate) => {
       blockCount++;
+      heartbeat?.();
+
       const slot = update.block?.slot ?? BigInt(0);
       const blockhash = update.block?.blockhash?.slice(0, 12) ?? '???';
       const txCount = update.transactions.length;

@@ -4,16 +4,19 @@
  *   npm run monitor:transactions
  *
  * Subscribes to non-vote transactions. Streams forever until SIGINT.
+ * Sends an email alert via AWS SES if the stream goes silent.
  */
 
 import { subscribe, CommitmentLevel, SubscribeUpdate } from '@solstice/solstream-sdk';
-import { config } from './config';
+import { config, alertConfig, ALERT_SILENCE_SECS } from './config';
 import { banner, info, success, warn, error, stat, separator } from './logger';
+import { createHeartbeat } from './alerter';
 
 async function main() {
   banner('MONITOR: Transaction Updates');
   info('CONFIG', `endpoint=${config.endpoint}`);
   info('CONFIG', 'running indefinitely  commitment=PROCESSED  vote=false  failed=false');
+  if (alertConfig) info('ALERT', `silence threshold=${ALERT_SILENCE_SECS}s  to=${alertConfig.to.join(', ')}`);
   separator();
 
   let count = 0;
@@ -21,6 +24,10 @@ async function main() {
   let failCount = 0;
   const programCounts: Map<string, number> = new Map();
   const startMs = Date.now();
+
+  const heartbeat = alertConfig
+    ? createHeartbeat(alertConfig, 'monitor-transactions', ALERT_SILENCE_SECS)
+    : null;
 
   const stream = await subscribe(
     config,
@@ -39,6 +46,7 @@ async function main() {
     async (update: SubscribeUpdate) => {
       if (!update.transaction) return;
       count++;
+      heartbeat?.();
 
       const { transaction, slot } = update.transaction;
       const sig = transaction?.signature
