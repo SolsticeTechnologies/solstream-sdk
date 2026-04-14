@@ -94,7 +94,7 @@ export function createHeartbeat(
     }, silenceSecs * 1000);
   };
 
-  // Start the timer immediately
-  reset();
+  // Timer only starts after first data is received (first call to the returned fn).
+  // This prevents SILENT being written to DynamoDB during container startup/reconnect.
   return reset;
 }

@@ -56,6 +56,7 @@ export function createStatusUpdater(
   let totalUpdates = 0;
   let lastDataAt: string | null = null;
   let currentStatus: MonitorStatus = 'STARTING';
+  let hasReceivedData = false;
   const startMs = Date.now();
 
   const flush = async (status: MonitorStatus) => {
@@ -77,9 +78,9 @@ export function createStatusUpdater(
     }
   };
 
-  // Periodic flush while ONLINE
+  // Periodic flush while ONLINE — only after first data has been received
   const interval = setInterval(() => {
-    if (currentStatus === 'ONLINE') flush('ONLINE');
+    if (hasReceivedData && currentStatus === 'ONLINE') flush('ONLINE');
   }, flushIntervalMs);
   interval.unref(); // don't block process exit
 
@@ -88,6 +89,7 @@ export function createStatusUpdater(
     tick() {
       totalUpdates++;
       lastDataAt = new Date().toISOString();
+      hasReceivedData = true;
       if (currentStatus !== 'ONLINE') flush('ONLINE');
     },
     /** Call when the stream goes silent / alert fires */
