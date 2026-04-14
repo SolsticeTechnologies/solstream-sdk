@@ -5,18 +5,21 @@
  *
  * Subscribes to non-vote transactions. Streams forever until SIGINT.
  * Sends an email alert via AWS SES if the stream goes silent.
+ * Writes live status to DynamoDB for the admin panel.
  */
 
 import { subscribe, CommitmentLevel, SubscribeUpdate } from '@solstice/solstream-sdk';
-import { config, alertConfig, ALERT_SILENCE_SECS } from './config';
+import { config, alertConfig, ALERT_SILENCE_SECS, dynamoConfig } from './config';
 import { banner, info, success, warn, error, stat, separator } from './logger';
 import { createHeartbeat } from './alerter';
+import { createStatusUpdater } from './status-store';
 
 async function main() {
   banner('MONITOR: Transaction Updates');
   info('CONFIG', `endpoint=${config.endpoint}`);
   info('CONFIG', 'running indefinitely  commitment=PROCESSED  vote=false  failed=false');
   if (alertConfig) info('ALERT', `silence threshold=${ALERT_SILENCE_SECS}s  to=${alertConfig.to.join(', ')}`);
+  if (dynamoConfig) info('DYNAMO', `table=${dynamoConfig.tableName}  flush=${dynamoConfig.flushIntervalMs / 1000}s`);
   separator();
 
   let count = 0;
@@ -25,8 +28,12 @@ async function main() {
   const programCounts: Map<string, number> = new Map();
   const startMs = Date.now();
 
+  const statusUpdater = dynamoConfig
+    ? createStatusUpdater(dynamoConfig.tableName, dynamoConfig.region, 'monitor-transactions', config.endpoint, dynamoConfig.flushIntervalMs)
+    : null;
+
   const heartbeat = alertConfig
-    ? createHeartbeat(alertConfig, 'monitor-transactions', ALERT_SILENCE_SECS)
+    ? createHeartbeat(alertConfig, 'monitor-transactions', ALERT_SILENCE_SECS, statusUpdater ?? undefined)
     : null;
 
   const stream = await subscribe(
@@ -47,6 +54,7 @@ async function main() {
       if (!update.transaction) return;
       count++;
       heartbeat?.();
+      statusUpdater?.tick();
 
       const { transaction, slot } = update.transaction;
       const sig = transaction?.signature
@@ -79,14 +87,16 @@ async function main() {
       }
     },
     (err: Error) => {
+      statusUpdater?.markError();
       error('STREAM', err.message);
     },
   );
 
   info('STREAM', `started  id=${stream.id}`);
 
-  process.on('SIGINT', () => {
+  process.on('SIGINT', async () => {
     stream.cancel();
+    await statusUpdater?.stop();
     const elapsedSecs = (Date.now() - startMs) / 1000;
     separator();
     stat('Total transactions', count);

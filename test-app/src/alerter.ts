@@ -4,6 +4,7 @@
  */
 
 import { SESClient, SendRawEmailCommand } from '@aws-sdk/client-ses';
+import type { createStatusUpdater } from './status-store';
 
 export interface AlertConfig {
   region: string;
@@ -44,6 +45,7 @@ export function createHeartbeat(
   alertConfig: AlertConfig,
   monitorName: string,
   silenceSecs: number,
+  statusUpdater?: ReturnType<typeof createStatusUpdater>,
 ): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let alertSent = false;
@@ -54,6 +56,7 @@ export function createHeartbeat(
     // Data resumed — send recovery email if we had previously alerted
     if (alertSent) {
       alertSent = false;
+      statusUpdater?.markOnline();
       const subject = `[Solstream] RECOVERED: ${monitorName} is receiving data again`;
       const body = [
         `Monitor: ${monitorName}`,
@@ -68,6 +71,7 @@ export function createHeartbeat(
     timer = setTimeout(async () => {
       if (alertSent) return;
       alertSent = true;
+      statusUpdater?.markSilent();
 
       const subject = `[Solstream] ALERT: ${monitorName} stream is silent`;
       const body = [

@@ -28,7 +28,7 @@ export const TEST_DURATION_MS =
 
 export const alertConfig = process.env['ALERT_FROM'] && process.env['ALERT_TO']
   ? {
-      region: process.env['AWS_REGION'] ?? 'us-east-1',
+      region: process.env['AWS_REGION'] ?? 'eu-west-2',
       from: process.env['ALERT_FROM']!,
       to: process.env['ALERT_TO']!.split(',').map(s => s.trim()),
     }
@@ -36,3 +36,11 @@ export const alertConfig = process.env['ALERT_FROM'] && process.env['ALERT_TO']
 
 export const ALERT_SILENCE_SECS =
   parseInt(process.env['ALERT_SILENCE_SECS'] ?? '60', 10);
+
+export const dynamoConfig = process.env['DYNAMODB_TABLE']
+  ? {
+      tableName: process.env['DYNAMODB_TABLE']!,
+      region: process.env['AWS_REGION'] ?? 'eu-west-2',
+      flushIntervalMs: parseInt(process.env['DYNAMODB_FLUSH_SECS'] ?? '30', 10) * 1_000,
+    }
+  : null;

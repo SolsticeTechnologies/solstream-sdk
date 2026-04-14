@@ -15,7 +15,9 @@
     "monitor:accounts": "ts-node src/monitor-accounts.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
     "@aws-sdk/client-ses": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0",
     "@solstice/solstream-sdk": "file:../js",
     "dotenv": "^16.4.5"
   },
