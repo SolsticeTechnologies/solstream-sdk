@@ -1,6 +1,6 @@
 /**
  * Solstream SDK — TypeScript type definitions
- * Mirrors the streaming.proto / geyser.proto message structures.
+ * Mirrors the streaming.proto message structures.
  */
 
 import type { ChannelOptions } from '@grpc/grpc-js';
@@ -16,15 +16,14 @@ export enum CommitmentLevel {
 }
 
 export enum SlotStatus {
-  SLOT_STATUS_PROCESSED = 0,
-  SLOT_STATUS_CONFIRMED = 1,
-  SLOT_STATUS_FINALIZED = 2,
-  SLOT_STATUS_FIRST_SHRED_RECEIVED = 3,
-  SLOT_STATUS_COMPLETED = 4,
-  SLOT_STATUS_CREATED_BANK = 5,
-  SLOT_STATUS_DEAD = 6,
-  SLOT_STATUS_ROOTED = 7,
-  SLOT_STATUS_OPTIMISTICALLY_CONFIRMED = 8,
+  Unknown = 0,
+  Processed = 1,
+  Rooted = 2,
+  Confirmed = 3,
+  FirstShredReceived = 4,
+  Completed = 5,
+  CreatedBank = 6,
+  Dead = 7,
 }
 
 export enum RewardType {
@@ -132,25 +131,26 @@ export interface SubscribeBlockRequest {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Geyser types
+// Core types
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface AccountInfo {
   pubkey: Uint8Array;
+  slot: bigint;
   lamports: bigint;
   owner: Uint8Array;
   executable: boolean;
   rentEpoch: bigint;
   data: Uint8Array;
   writeVersion: bigint;
-  txnSignature?: Uint8Array;
+  isStartup: boolean;
+  version: number;
 }
 
 export interface SlotInfo {
   slot: bigint;
   parent?: bigint;
   status: SlotStatus;
-  deadError?: string;
 }
 
 export interface TransactionError {
@@ -190,9 +190,7 @@ export interface Transaction {
 }
 
 export interface InnerInstruction {
-  programIdIndex: number;
-  accounts: Uint8Array;
-  data: Uint8Array;
+  instruction?: CompiledInstruction;
   stackHeight?: number;
 }
 
@@ -207,7 +205,7 @@ export interface ReturnData {
 }
 
 export interface UiTokenAmount {
-  uiAmount: number;
+  uiAmount?: number;
   decimals: number;
   amount: string;
   uiAmountString: string;
@@ -226,7 +224,7 @@ export interface Reward {
   lamports: bigint;
   postBalance: bigint;
   rewardType: RewardType;
-  commission: string;
+  commission?: number;
 }
 
 export interface TransactionStatusMeta {
@@ -235,37 +233,38 @@ export interface TransactionStatusMeta {
   preBalances: bigint[];
   postBalances: bigint[];
   innerInstructions: InnerInstructions[];
-  innerInstructionsNone: boolean;
   logMessages: string[];
-  logMessagesNone: boolean;
   preTokenBalances: TokenBalance[];
   postTokenBalances: TokenBalance[];
   rewards: Reward[];
-  rewardsNone: boolean;
   loadedWritableAddresses: Uint8Array[];
   loadedReadonlyAddresses: Uint8Array[];
   returnData?: ReturnData;
-  returnDataNone: boolean;
   computeUnitsConsumed?: bigint;
+  costUnits?: bigint;
 }
 
 export interface TransactionInfo {
   signature: Uint8Array;
+  slot: bigint;
+  messageHash: Uint8Array;
   isVote: boolean;
   transaction?: Transaction;
-  meta?: TransactionStatusMeta;
-  index: bigint;
+  transactionMeta?: TransactionStatusMeta;
+  index?: bigint;
 }
 
 export interface BlockInfo {
   slot: bigint;
+  parentSlot?: bigint;
+  parentBlockhash?: string;
   blockhash: string;
   rewards: Reward[];
   blockTime?: bigint;
   blockHeight?: bigint;
   executedTransactionCount?: bigint;
-  entriesCount?: bigint;
-  totalTransactionCount?: bigint;
+  entryCount?: bigint;
+  version: number;
 }
 
 export interface EntryInfo {

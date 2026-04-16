@@ -57,7 +57,7 @@ async function main() {
 
       let blockFees = BigInt(0);
       for (const tx of update.transactions) {
-        blockFees += tx.meta?.fee ?? BigInt(0);
+        blockFees += tx.transactionMeta?.fee ?? BigInt(0);
       }
       totalFees += blockFees;
 

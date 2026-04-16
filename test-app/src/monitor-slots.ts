@@ -59,12 +59,11 @@ async function main() {
       if (slot < minSlot) minSlot = slot;
       if (slot > maxSlot) maxSlot = slot;
 
-      const log = status.includes('FINALIZED') ? warn : success;
+      const log = status.includes('Dead') ? warn : success;
       log(
         'SLOT',
         `slot=${slot}  status=${status}` +
-        (parent !== undefined ? `  parent=${parent}` : '') +
-        (slotInfo?.deadError ? `  deadError=${slotInfo.deadError}` : ''),
+        (parent !== undefined ? `  parent=${parent}` : ''),
       );
     },
     (err: Error) => {

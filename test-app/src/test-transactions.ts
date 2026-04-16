@@ -45,10 +45,10 @@ async function main() {
         ? Buffer.from(transaction.signature).toString('hex').slice(0, 16)
         : '???';
 
-      const fee = transaction?.meta?.fee ?? BigInt(0);
-      const hasErr = !!transaction?.meta?.err;
-      const logCount = transaction?.meta?.logMessages?.length ?? 0;
-      const computeUnits = transaction?.meta?.computeUnitsConsumed;
+      const fee = transaction?.transactionMeta?.fee ?? BigInt(0);
+      const hasErr = !!transaction?.transactionMeta?.err;
+      const logCount = transaction?.transactionMeta?.logMessages?.length ?? 0;
+      const computeUnits = transaction?.transactionMeta?.computeUnitsConsumed;
 
       if (hasErr) {
         failCount++;
@@ -63,7 +63,7 @@ async function main() {
       }
 
       // Track program invocations from log messages
-      for (const log of transaction?.meta?.logMessages ?? []) {
+      for (const log of transaction?.transactionMeta?.logMessages ?? []) {
         const match = log.match(/^Program (\S+) invoke/);
         if (match?.[1]) {
           const prog = match[1].slice(0, 12) + '…';
