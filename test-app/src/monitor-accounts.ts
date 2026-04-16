@@ -3,7 +3,10 @@
  *
  *   npm run monitor:accounts
  *
- * Subscribes to all account updates. Streams forever until SIGINT.
+ * Subscribes to filtered account updates. Streams forever until SIGINT.
+ * Filters:
+ *   - spl-token-accounts: Token program accounts, exactly 165 bytes
+ *   - funded-wallets:     System program accounts with > 1 SOL
  * Sends an email alert via AWS SES if the stream goes silent.
  * Writes live status to DynamoDB for the admin panel.
  */
@@ -17,7 +20,7 @@ import { createStatusUpdater } from './status-store';
 async function main() {
   banner('MONITOR: Account Updates');
   info('CONFIG', `endpoint=${config.endpoint}`);
-  info('CONFIG', 'running indefinitely  commitment=CONFIRMED');
+  info('CONFIG', 'running indefinitely  commitment=CONFIRMED  filters=spl-token-accounts,funded-wallets');
   if (alertConfig) info('ALERT', `silence threshold=${ALERT_SILENCE_SECS}s  to=${alertConfig.to.join(', ')}`);
   if (dynamoConfig) info('DYNAMO', `table=${dynamoConfig.tableName}  flush=${dynamoConfig.flushIntervalMs / 1000}s`);
   separator();
@@ -34,11 +37,31 @@ async function main() {
     ? createHeartbeat(alertConfig, 'monitor-accounts', ALERT_SILENCE_SECS, statusUpdater ?? undefined)
     : null;
 
+  const TOKEN_PROGRAM  = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+  const SYSTEM_PROGRAM = '11111111111111111111111111111111';
+  const ONE_SOL        = BigInt(1_000_000_000);
+
   const stream = await subscribe(
     config,
     {
       accounts: {
-        all: { account: [], owner: [], filters: [] },
+        // SPL token accounts: owned by Token program, exactly 165 bytes
+        'spl-token-accounts': {
+          account: [],
+          owner: [TOKEN_PROGRAM],
+          filters: [
+            { datasize: BigInt(165) },
+            { tokenAccountState: true },
+          ],
+        },
+        // System-owned accounts with more than 1 SOL
+        'funded-wallets': {
+          account: [],
+          owner: [SYSTEM_PROGRAM],
+          filters: [
+            { lamports: { gt: ONE_SOL } },
+          ],
+        },
       },
       commitment: CommitmentLevel.CONFIRMED,
     },

@@ -3,7 +3,10 @@
  *
  *   npm run monitor:transactions
  *
- * Subscribes to non-vote transactions. Streams forever until SIGINT.
+ * Subscribes to filtered non-vote transactions. Streams forever until SIGINT.
+ * Filters:
+ *   - token-txns:  transactions involving the SPL Token program
+ *   - system-txns: transactions involving the System program
  * Sends an email alert via AWS SES if the stream goes silent.
  * Writes live status to DynamoDB for the admin panel.
  */
@@ -17,7 +20,7 @@ import { createStatusUpdater } from './status-store';
 async function main() {
   banner('MONITOR: Transaction Updates');
   info('CONFIG', `endpoint=${config.endpoint}`);
-  info('CONFIG', 'running indefinitely  commitment=PROCESSED  vote=false  failed=false');
+  info('CONFIG', 'running indefinitely  commitment=PROCESSED  vote=false  failed=false  filters=token-txns,system-txns');
   if (alertConfig) info('ALERT', `silence threshold=${ALERT_SILENCE_SECS}s  to=${alertConfig.to.join(', ')}`);
   if (dynamoConfig) info('DYNAMO', `table=${dynamoConfig.tableName}  flush=${dynamoConfig.flushIntervalMs / 1000}s`);
   separator();
@@ -36,14 +39,26 @@ async function main() {
     ? createHeartbeat(alertConfig, 'monitor-transactions', ALERT_SILENCE_SECS, statusUpdater ?? undefined)
     : null;
 
+  const TOKEN_PROGRAM  = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+  const SYSTEM_PROGRAM = '11111111111111111111111111111111';
+
   const stream = await subscribe(
     config,
     {
       transactions: {
-        'non-vote': {
+        // Non-vote transactions involving the SPL Token program
+        'token-txns': {
           vote: false,
           failed: false,
-          accountInclude: [],
+          accountInclude: [TOKEN_PROGRAM],
+          accountExclude: [],
+          accountRequired: [],
+        },
+        // Non-vote transactions involving the System program
+        'system-txns': {
+          vote: false,
+          failed: false,
+          accountInclude: [SYSTEM_PROGRAM],
           accountExclude: [],
           accountRequired: [],
         },
