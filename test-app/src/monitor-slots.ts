@@ -73,8 +73,7 @@ async function main() {
       lastSlot = slot;
     },
     (err: Error) => {
-      statusUpdater?.markError();
-      error('STREAM', err.message);
+      error('STREAM', `reconnecting — ${err.message}`);
     },
   );
 

@@ -18,8 +18,8 @@ function require_env(name: string): string {
 export const config: SolstreamConfig = {
   endpoint: require_env('SOLSTREAM_ENDPOINT'),
   apiKey: process.env['SOLSTREAM_API_KEY'],
-  maxReconnectAttempts: 3,
   baseReconnectDelayMs: 1_000,
+  maxReconnectDelayMs: 30_000,
   replay: false,
 };
 

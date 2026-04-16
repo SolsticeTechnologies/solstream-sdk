@@ -97,8 +97,7 @@ async function main() {
         : '???';
     },
     (err: Error) => {
-      statusUpdater?.markError();
-      error('STREAM', err.message);
+      error('STREAM', `reconnecting — ${err.message}`);
     },
   );
 
