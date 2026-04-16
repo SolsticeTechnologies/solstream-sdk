@@ -10,7 +10,7 @@
 
 import { subscribe, CommitmentLevel, SubscribeUpdate } from '@solstice/solstream-sdk';
 import { config, alertConfig, ALERT_SILENCE_SECS, dynamoConfig } from './config';
-import { banner, info, success, warn, error, stat, separator } from './logger';
+import { banner, info, success, error, stat, separator } from './logger';
 import { createHeartbeat } from './alerter';
 import { createStatusUpdater } from './status-store';
 
@@ -23,10 +23,22 @@ async function main() {
   separator();
 
   let count = 0;
+  let windowCount = 0;
+  let lastSlot: bigint = BigInt(0);
   const statusCounts: Record<string, number> = {};
   let minSlot = BigInt(Number.MAX_SAFE_INTEGER);
   let maxSlot = BigInt(0);
   const startMs = Date.now();
+
+  const logInterval = setInterval(() => {
+    if (windowCount === 0) {
+      info('SLOT', 'no updates in last 30s — waiting for data…');
+    } else {
+      success('SLOT', `${windowCount} updates/30s  last slot=${lastSlot}`);
+      windowCount = 0;
+    }
+  }, 30_000);
+  logInterval.unref();
 
   const statusUpdater = dynamoConfig
     ? createStatusUpdater(dynamoConfig.tableName, dynamoConfig.region, 'monitor-slots', config.endpoint, dynamoConfig.flushIntervalMs)
@@ -53,18 +65,12 @@ async function main() {
       const { slotInfo } = update.slot;
       const slot = slotInfo?.slot ?? BigInt(0);
       const status = String(slotInfo?.status ?? 'UNKNOWN');
-      const parent = slotInfo?.parent;
 
       statusCounts[status] = (statusCounts[status] ?? 0) + 1;
       if (slot < minSlot) minSlot = slot;
       if (slot > maxSlot) maxSlot = slot;
-
-      const log = status.includes('Dead') ? warn : success;
-      log(
-        'SLOT',
-        `slot=${slot}  status=${status}` +
-        (parent !== undefined ? `  parent=${parent}` : ''),
-      );
+      windowCount++;
+      lastSlot = slot;
     },
     (err: Error) => {
       statusUpdater?.markError();
@@ -75,6 +81,7 @@ async function main() {
   info('STREAM', `started  id=${stream.id}`);
 
   process.on('SIGINT', async () => {
+    clearInterval(logInterval);
     stream.cancel();
     await statusUpdater?.stop();
     const elapsedSecs = (Date.now() - startMs) / 1000;

@@ -13,7 +13,7 @@
 
 import { subscribe, CommitmentLevel, SubscribeUpdate } from '@solstice/solstream-sdk';
 import { config, alertConfig, ALERT_SILENCE_SECS, dynamoConfig } from './config';
-import { banner, info, success, warn, error, stat, separator } from './logger';
+import { banner, info, success, error, stat, separator } from './logger';
 import { createHeartbeat } from './alerter';
 import { createStatusUpdater } from './status-store';
 
@@ -28,8 +28,26 @@ async function main() {
   let count = 0;
   let successCount = 0;
   let failCount = 0;
+  let windowCount = 0;
+  let windowFailed = 0;
+  let lastSlot: bigint = BigInt(0);
+  let lastSig = '???';
   const programCounts: Map<string, number> = new Map();
   const startMs = Date.now();
+
+  const logInterval = setInterval(() => {
+    if (windowCount === 0) {
+      info('TX', 'no updates in last 30s — waiting for data…');
+    } else {
+      const msg = windowFailed > 0
+        ? `${windowCount} txns/30s (${windowFailed} failed)  last slot=${lastSlot}  last sig=${lastSig}…`
+        : `${windowCount} txns/30s  last slot=${lastSlot}  last sig=${lastSig}…`;
+      success('TX', msg);
+      windowCount = 0;
+      windowFailed = 0;
+    }
+  }, 30_000);
+  logInterval.unref();
 
   const statusUpdater = dynamoConfig
     ? createStatusUpdater(dynamoConfig.tableName, dynamoConfig.region, 'monitor-transactions', config.endpoint, dynamoConfig.flushIntervalMs)
@@ -72,25 +90,19 @@ async function main() {
       statusUpdater?.tick();
 
       const { transaction, slot } = update.transaction;
-      const sig = transaction?.signature
+      const hasErr = !!transaction?.transactionMeta?.err;
+
+      windowCount++;
+      lastSlot = slot;
+      lastSig = transaction?.signature
         ? Buffer.from(transaction.signature).toString('hex').slice(0, 16)
         : '???';
 
-      const fee = transaction?.transactionMeta?.fee ?? BigInt(0);
-      const hasErr = !!transaction?.transactionMeta?.err;
-      const logCount = transaction?.transactionMeta?.logMessages?.length ?? 0;
-      const computeUnits = transaction?.transactionMeta?.computeUnitsConsumed;
-
       if (hasErr) {
         failCount++;
-        warn('TX', `slot=${slot}  sig=${sig}…  fee=${fee}  logs=${logCount}  [FAILED]`);
+        windowFailed++;
       } else {
         successCount++;
-        success(
-          'TX',
-          `slot=${slot}  sig=${sig}…  fee=${fee}  logs=${logCount}` +
-          (computeUnits !== undefined ? `  cu=${computeUnits}` : ''),
-        );
       }
 
       for (const log of transaction?.transactionMeta?.logMessages ?? []) {
@@ -110,6 +122,7 @@ async function main() {
   info('STREAM', `started  id=${stream.id}`);
 
   process.on('SIGINT', async () => {
+    clearInterval(logInterval);
     stream.cancel();
     await statusUpdater?.stop();
     const elapsedSecs = (Date.now() - startMs) / 1000;

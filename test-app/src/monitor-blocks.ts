@@ -25,7 +25,21 @@ async function main() {
   let blockCount = 0;
   let totalTxns = 0;
   let totalFees = BigInt(0);
+  let windowBlocks = 0;
+  let windowTxns = 0;
+  let lastSlot: bigint = BigInt(0);
   const startMs = Date.now();
+
+  const logInterval = setInterval(() => {
+    if (windowBlocks === 0) {
+      info('BLOCK', 'no updates in last 30s — waiting for data…');
+    } else {
+      success('BLOCK', `${windowBlocks} blocks/30s  ${windowTxns} txns  last slot=${lastSlot}`);
+      windowBlocks = 0;
+      windowTxns = 0;
+    }
+  }, 30_000);
+  logInterval.unref();
 
   const statusUpdater = dynamoConfig
     ? createStatusUpdater(dynamoConfig.tableName, dynamoConfig.region, 'monitor-blocks', config.endpoint, dynamoConfig.flushIntervalMs)
@@ -47,27 +61,15 @@ async function main() {
       heartbeat?.();
       statusUpdater?.tick();
 
-      const slot = update.block?.slot ?? BigInt(0);
-      const blockhash = update.block?.blockhash?.slice(0, 12) ?? '???';
       const txCount = update.transactions.length;
-      const blockTime = update.block?.blockTime;
-      const blockHeight = update.block?.blockHeight;
-
+      lastSlot = update.block?.slot ?? BigInt(0);
+      windowBlocks++;
+      windowTxns += txCount;
       totalTxns += txCount;
 
-      let blockFees = BigInt(0);
       for (const tx of update.transactions) {
-        blockFees += tx.transactionMeta?.fee ?? BigInt(0);
+        totalFees += tx.transactionMeta?.fee ?? BigInt(0);
       }
-      totalFees += blockFees;
-
-      success(
-        'BLOCK',
-        `slot=${slot}  hash=${blockhash}…  ` +
-        `txns=${txCount}  fees=${lamportsToSol(blockFees)}` +
-        (blockHeight !== undefined ? `  height=${blockHeight}` : '') +
-        (blockTime !== undefined ? `  time=${new Date(Number(blockTime) * 1000).toISOString().slice(11, 19)}` : ''),
-      );
     },
     (err: Error) => {
       statusUpdater?.markError();
@@ -78,6 +80,7 @@ async function main() {
   info('STREAM', `started  id=${stream.id}`);
 
   process.on('SIGINT', async () => {
+    clearInterval(logInterval);
     stream.cancel();
     await statusUpdater?.stop();
     const elapsedSecs = (Date.now() - startMs) / 1000;
