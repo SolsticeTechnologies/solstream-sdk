@@ -10,7 +10,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 
-export type MonitorStatus = 'STARTING' | 'ONLINE' | 'SILENT' | 'ERROR';
+export type MonitorStatus = 'STARTING' | 'ONLINE' | 'RECONNECTING' | 'SILENT' | 'ERROR';
 
 export interface StatusRecord {
   monitorId: string;
@@ -84,6 +84,9 @@ export function createStatusUpdater(
   }, flushIntervalMs);
   interval.unref(); // don't block process exit
 
+  // Write STARTING immediately so the admin panel is never stale after a restart
+  flush('STARTING').catch(() => {});
+
   return {
     /** Call on every data update received from the stream */
     tick() {
@@ -91,6 +94,10 @@ export function createStatusUpdater(
       lastDataAt = new Date().toISOString();
       hasReceivedData = true;
       if (currentStatus !== 'ONLINE') flush('ONLINE');
+    },
+    /** Call when the stream disconnects and is attempting to reconnect */
+    markReconnecting() {
+      flush('RECONNECTING');
     },
     /** Call when the stream goes silent / alert fires */
     markSilent() {

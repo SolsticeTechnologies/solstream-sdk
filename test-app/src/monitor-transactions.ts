@@ -114,6 +114,7 @@ async function main() {
       }
     },
     (err: Error) => {
+      statusUpdater?.markReconnecting();
       error('STREAM', `reconnecting — ${err.message}`);
     },
   );
