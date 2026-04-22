@@ -21,6 +21,10 @@ export const config: SolstreamConfig = {
   baseReconnectDelayMs: 1_000,
   maxReconnectDelayMs: 30_000,
   replay: false,
+  channelOptions: {
+    'grpc.max_receive_message_length': -1, // unlimited — blocks/accounts exceed default 4 MB
+    'grpc.max_send_message_length': -1,
+  },
 };
 
 export const TEST_DURATION_MS =
