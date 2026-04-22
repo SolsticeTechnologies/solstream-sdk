@@ -121,6 +121,7 @@ function backoff(
 
 interface ActiveStream {
   call: grpc.ClientReadableStream<any> | null;
+  client: grpc.Client | null;
   cancelled: boolean;
   lastSlot?: bigint;
 }
@@ -151,7 +152,7 @@ export async function subscribe(
   onError?: (error: Error) => void | Promise<void>,
 ): Promise<StreamHandle> {
   const streamId = randomUUID();
-  const state: ActiveStream = { call: null, cancelled: false };
+  const state: ActiveStream = { call: null, client: null, cancelled: false };
 
   const {
     maxReconnectAttempts = Infinity,
@@ -166,7 +167,11 @@ export async function subscribe(
   const connect = (attempt: number): void => {
     if (state.cancelled) return;
 
+    // Close the previous channel before opening a new one to avoid leaking connections
+    state.client?.close();
+
     const client = getServiceClient(host, channelCreds, config.channelOptions);
+    state.client = client;
 
     // Inject replay fromSlot when enabled and we have a last-known slot
     const req = buildRequest(request, replay, state.lastSlot);
@@ -228,6 +233,7 @@ export async function subscribe(
     cancel() {
       state.cancelled = true;
       state.call?.cancel();
+      state.client?.close();
     },
     write(req: SubscribeRequest): Promise<void> {
       return new Promise((resolve, reject) => {
@@ -269,7 +275,7 @@ export async function subscribeBlocks(
   onError?: (error: Error) => void | Promise<void>,
 ): Promise<StreamHandle> {
   const streamId = randomUUID();
-  const state: ActiveStream = { call: null, cancelled: false };
+  const state: ActiveStream = { call: null, client: null, cancelled: false };
 
   const {
     maxReconnectAttempts = Infinity,
@@ -284,7 +290,10 @@ export async function subscribeBlocks(
   const connect = (attempt: number): void => {
     if (state.cancelled) return;
 
+    state.client?.close();
+
     const client = getServiceClient(host, channelCreds, config.channelOptions);
+    state.client = client;
 
     // Inject replay fromSlot when enabled
     const req: SubscribeBlockRequest =
@@ -343,6 +352,7 @@ export async function subscribeBlocks(
     cancel() {
       state.cancelled = true;
       state.call?.cancel();
+      state.client?.close();
     },
     write(_req: SubscribeRequest): Promise<void> {
       return Promise.reject(new Error('write() is not supported on block streams'));
