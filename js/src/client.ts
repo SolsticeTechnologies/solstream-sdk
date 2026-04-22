@@ -55,11 +55,11 @@ function getServiceClient(
   endpoint: string,
   credentials: grpc.ChannelCredentials,
   channelOptions?: grpc.ChannelOptions,
-): grpc.ServiceClientConstructor {
+): grpc.Client {
   const proto = loadProto() as any;
   const ServiceCtor: grpc.ServiceClientConstructor =
     proto.streaming.StreamingService;
-  return new (ServiceCtor as any)(endpoint, credentials, channelOptions ?? {});
+  return new (ServiceCtor as any)(endpoint, credentials, channelOptions ?? {}) as grpc.Client;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
