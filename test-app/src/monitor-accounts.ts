@@ -20,7 +20,7 @@ import { createStatusUpdater } from './status-store';
 async function main() {
   banner('MONITOR: Account Updates');
   info('CONFIG', `endpoint=${config.endpoint}`);
-  info('CONFIG', 'running indefinitely  commitment=CONFIRMED  filters=spl-token-accounts,funded-wallets');
+  info('CONFIG', 'running indefinitely  commitment=CONFIRMED  filters=spl-token-accounts,funded-wallets(>10k SOL)');
   if (alertConfig) info('ALERT', `silence threshold=${ALERT_SILENCE_SECS}s  to=${alertConfig.to.join(', ')}`);
   if (dynamoConfig) info('DYNAMO', `table=${dynamoConfig.tableName}  flush=${dynamoConfig.flushIntervalMs / 1000}s`);
   separator();
@@ -56,7 +56,9 @@ async function main() {
 
   const TOKEN_PROGRAM  = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
   const SYSTEM_PROGRAM = '11111111111111111111111111111111';
-  const ONE_SOL        = BigInt(1_000_000_000);
+  // 10,000 SOL threshold keeps startup state small (only ~hundreds of whale wallets)
+  // vs >1 SOL which matches millions of accounts and blows the gRPC receive buffer
+  const WHALE_LAMPORTS = BigInt(10_000 * 1_000_000_000);
 
   const stream = await subscribe(
     config,
@@ -71,12 +73,12 @@ async function main() {
             { tokenAccountState: true },
           ],
         },
-        // System-owned accounts with more than 1 SOL
+        // System-owned whale wallets: narrow threshold to limit startup burst
         'funded-wallets': {
           account: [],
           owner: [SYSTEM_PROGRAM],
           filters: [
-            { lamports: { gt: ONE_SOL } },
+            { lamports: { gt: WHALE_LAMPORTS } },
           ],
         },
       },
