@@ -97,7 +97,7 @@ export function createStatusUpdater(
     },
     /** Call when the stream disconnects and is attempting to reconnect */
     markReconnecting() {
-      flush('RECONNECTING');
+      if (currentStatus !== 'RECONNECTING') flush('RECONNECTING');
     },
     /** Call when the stream goes silent / alert fires */
     markSilent() {

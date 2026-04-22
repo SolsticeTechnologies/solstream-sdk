@@ -177,7 +177,7 @@ export async function subscribe(
     state.call = call;
 
     call.on('data', async (raw: any) => {
-      // Track last seen slot for replay
+      call.pause(); // backpressure: prevent grpc-js buffer overflow on bursts
       if (replay) {
         const slot = extractSlot(raw);
         if (slot !== undefined) state.lastSlot = slot;
@@ -187,6 +187,7 @@ export async function subscribe(
       } catch (err) {
         /* swallow user handler errors so they don't kill the stream */
       }
+      call.resume();
     });
 
     call.on('error', async (err: Error) => {
@@ -297,6 +298,7 @@ export async function subscribeBlocks(
     state.call = call;
 
     call.on('data', async (raw: any) => {
+      call.pause();
       if (replay && raw?.block?.slot !== undefined) {
         state.lastSlot = BigInt(raw.block.slot);
       }
@@ -305,6 +307,7 @@ export async function subscribeBlocks(
       } catch {
         /* swallow */
       }
+      call.resume();
     });
 
     call.on('error', async (err: Error) => {
