@@ -210,7 +210,11 @@ export async function runProbeLoop(cfg: ProbeLoopConfig): Promise<never> {
       consecutiveFailures++;
       error('PROBE', `#${probeCount} failed (${consecutiveFailures} in a row) — ${result.errorMessage}`);
 
-      writeStatusRecord('SILENT').catch(console.error);
+      // Only flip DynamoDB to SILENT once we reach the alert threshold so that
+      // a single transient probe failure doesn't show SILENT to the admin panel.
+      if (consecutiveFailures >= cfg.alertAfterFailures) {
+        writeStatusRecord('SILENT').catch(console.error);
+      }
 
       if (!alertSent && consecutiveFailures >= cfg.alertAfterFailures && cfg.alertConfig) {
         alertSent = true;
