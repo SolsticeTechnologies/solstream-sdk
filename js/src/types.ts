@@ -331,6 +331,4 @@ export interface StreamHandle {
   id: string;
   /** Cancel the stream and stop reconnection attempts */
   cancel(): void;
-  /** Dynamically update the subscription request on an active stream */
-  write(request: SubscribeRequest): Promise<void>;
 }

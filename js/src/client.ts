@@ -3,8 +3,8 @@
  *
  * Provides subscribe() and subscribeBlocks() with:
  *   - Automatic reconnection with exponential back-off
+ *   - Attempt counter reset on every successful message (matches Rust SDK behaviour)
  *   - Optional slot-replay on reconnect
- *   - Dynamic subscription updates via StreamHandle.write()
  */
 
 import * as grpc from '@grpc/grpc-js';
@@ -30,8 +30,8 @@ const STREAMING_PROTO = path.join(PROTO_DIR, 'streaming.proto');
 
 const LOADER_OPTIONS: protoLoader.Options = {
   keepCase: false,       // camelCase field names
-  longs: String,         // uint64 → string (safe for JS)
-  enums: String,         // enum → string name
+  longs: BigInt,         // uint64 → bigint (matches TypeScript types)
+  enums: Number,         // enum → numeric value (matches TypeScript enums)
   defaults: true,
   oneofs: true,
   includeDirs: [
@@ -51,6 +51,24 @@ function loadProto(): grpc.GrpcObject {
   return _grpcObj;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Default channel options
+// ─────────────────────────────────────────────────────────────────────────────
+
+// 128 MiB — matches the Rust SDK MAX_DECODING_BYTES constant.
+const MAX_MESSAGE_BYTES = 128 * 1024 * 1024;
+
+const DEFAULT_CHANNEL_OPTIONS: grpc.ChannelOptions = {
+  'grpc.max_receive_message_length': MAX_MESSAGE_BYTES,
+  'grpc.max_send_message_length': -1,
+  // Keep-alive pings so silent TCP drops are detected.
+  'grpc.keepalive_time_ms': 30_000,
+  'grpc.keepalive_timeout_ms': 5_000,
+  'grpc.keepalive_permit_without_calls': 1,
+  // Prefer gzip on the receive path (server must also support it).
+  'grpc.default_compression_algorithm': grpc.compressionAlgorithms.gzip,
+};
+
 function getServiceClient(
   endpoint: string,
   credentials: grpc.ChannelCredentials,
@@ -59,7 +77,8 @@ function getServiceClient(
   const proto = loadProto() as any;
   const ServiceCtor: grpc.ServiceClientConstructor =
     proto.streaming.StreamingService;
-  return new (ServiceCtor as any)(endpoint, credentials, channelOptions ?? {}) as grpc.Client;
+  const merged = { ...DEFAULT_CHANNEL_OPTIONS, ...channelOptions };
+  return new (ServiceCtor as any)(endpoint, credentials, merged) as grpc.Client;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,16 +183,18 @@ export async function subscribe(
   const { channelCreds, callMeta } = makeCredentials(config.endpoint, config.apiKey);
   const host = normalizeEndpoint(config.endpoint);
 
-  const connect = (attempt: number): void => {
+  // Mutable counter reset to 0 on every successful message (mirrors Rust SDK).
+  let currentAttempt = 0;
+
+  const connect = (): void => {
     if (state.cancelled) return;
 
-    // Close the previous channel before opening a new one to avoid leaking connections
+    // Close the previous channel before opening a new one to avoid leaking connections.
     state.client?.close();
 
     const client = getServiceClient(host, channelCreds, config.channelOptions);
     state.client = client;
 
-    // Inject replay fromSlot when enabled and we have a last-known slot
     const req = buildRequest(request, replay, state.lastSlot);
 
     const call: grpc.ClientReadableStream<any> = callMeta
@@ -183,13 +204,14 @@ export async function subscribe(
 
     call.on('data', async (raw: any) => {
       call.pause(); // backpressure: prevent grpc-js buffer overflow on bursts
+      currentAttempt = 0; // reset on successful message
       if (replay) {
         const slot = extractSlot(raw);
         if (slot !== undefined) state.lastSlot = slot;
       }
       try {
         await onData(raw as SubscribeUpdate);
-      } catch (err) {
+      } catch {
         /* swallow user handler errors so they don't kill the stream */
       }
       call.resume();
@@ -204,29 +226,26 @@ export async function subscribe(
           /* ignore */
         }
       }
-      scheduleReconnect(attempt);
+      scheduleReconnect();
     });
 
     call.on('end', () => {
-      if (state.cancelled) return;
-      scheduleReconnect(attempt);
+      if (!state.cancelled) scheduleReconnect();
     });
   };
 
-  const scheduleReconnect = (prevAttempt: number): void => {
+  const scheduleReconnect = (): void => {
     if (state.cancelled) return;
-    const nextAttempt = prevAttempt + 1;
-    if (nextAttempt > maxReconnectAttempts) {
-      if (onError) {
-        onError(new Error(`Solstream: max reconnect attempts (${maxReconnectAttempts}) reached`));
-      }
+    currentAttempt++;
+    if (currentAttempt > maxReconnectAttempts) {
+      onError?.(new Error(`Solstream: max reconnect attempts (${maxReconnectAttempts}) reached`));
       return;
     }
-    const ms = backoff(prevAttempt, baseReconnectDelayMs, maxReconnectDelayMs);
-    delay(ms).then(() => connect(nextAttempt));
+    const ms = backoff(currentAttempt - 1, baseReconnectDelayMs, maxReconnectDelayMs);
+    delay(ms).then(() => connect());
   };
 
-  connect(0);
+  connect();
 
   const handle: StreamHandle = {
     id: streamId,
@@ -234,18 +253,6 @@ export async function subscribe(
       state.cancelled = true;
       state.call?.cancel();
       state.client?.close();
-    },
-    write(req: SubscribeRequest): Promise<void> {
-      return new Promise((resolve, reject) => {
-        if (!state.call) {
-          reject(new Error('Stream not active'));
-          return;
-        }
-        (state.call as any).write(req, (err: Error | null) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
     },
   };
 
@@ -287,7 +294,9 @@ export async function subscribeBlocks(
   const { channelCreds, callMeta } = makeCredentials(config.endpoint, config.apiKey);
   const host = normalizeEndpoint(config.endpoint);
 
-  const connect = (attempt: number): void => {
+  let currentAttempt = 0;
+
+  const connect = (): void => {
     if (state.cancelled) return;
 
     state.client?.close();
@@ -295,7 +304,6 @@ export async function subscribeBlocks(
     const client = getServiceClient(host, channelCreds, config.channelOptions);
     state.client = client;
 
-    // Inject replay fromSlot when enabled
     const req: SubscribeBlockRequest =
       replay && state.lastSlot !== undefined
         ? { ...request, fromSlot: state.lastSlot }
@@ -308,6 +316,7 @@ export async function subscribeBlocks(
 
     call.on('data', async (raw: any) => {
       call.pause();
+      currentAttempt = 0;
       if (replay && raw?.block?.slot !== undefined) {
         state.lastSlot = BigInt(raw.block.slot);
       }
@@ -324,28 +333,26 @@ export async function subscribeBlocks(
       if (onError) {
         try { await onError(err); } catch { /* ignore */ }
       }
-      scheduleReconnect(attempt);
+      scheduleReconnect();
     });
 
     call.on('end', () => {
-      if (!state.cancelled) scheduleReconnect(attempt);
+      if (!state.cancelled) scheduleReconnect();
     });
   };
 
-  const scheduleReconnect = (prevAttempt: number): void => {
+  const scheduleReconnect = (): void => {
     if (state.cancelled) return;
-    const nextAttempt = prevAttempt + 1;
-    if (nextAttempt > maxReconnectAttempts) {
-      if (onError) {
-        onError(new Error(`Solstream: max reconnect attempts (${maxReconnectAttempts}) reached`));
-      }
+    currentAttempt++;
+    if (currentAttempt > maxReconnectAttempts) {
+      onError?.(new Error(`Solstream: max reconnect attempts (${maxReconnectAttempts}) reached`));
       return;
     }
-    delay(backoff(prevAttempt, baseReconnectDelayMs, maxReconnectDelayMs))
-      .then(() => connect(nextAttempt));
+    delay(backoff(currentAttempt - 1, baseReconnectDelayMs, maxReconnectDelayMs))
+      .then(() => connect());
   };
 
-  connect(0);
+  connect();
 
   const handle: StreamHandle = {
     id: streamId,
@@ -353,9 +360,6 @@ export async function subscribeBlocks(
       state.cancelled = true;
       state.call?.cancel();
       state.client?.close();
-    },
-    write(_req: SubscribeRequest): Promise<void> {
-      return Promise.reject(new Error('write() is not supported on block streams'));
     },
   };
 

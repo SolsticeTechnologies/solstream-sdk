@@ -21,14 +21,22 @@ export const config: SolstreamConfig = {
   baseReconnectDelayMs: 1_000,
   maxReconnectDelayMs: 30_000,
   replay: false,
-  channelOptions: {
-    'grpc.max_receive_message_length': -1, // unlimited — blocks/accounts exceed default 4 MB
-    'grpc.max_send_message_length': -1,
-  },
 };
 
 export const TEST_DURATION_MS =
   parseInt(process.env['TEST_DURATION_SECS'] ?? '30', 10) * 1_000;
+
+/** How long each probe waits for the first message before timing out (default: 30 s). */
+export const PROBE_TIMEOUT_MS =
+  parseInt(process.env['PROBE_TIMEOUT_SECS'] ?? '30', 10) * 1_000;
+
+/** How long to sleep between probe cycles (default: 5 min). */
+export const PROBE_INTERVAL_MS =
+  parseInt(process.env['PROBE_INTERVAL_SECS'] ?? '300', 10) * 1_000;
+
+/** Number of consecutive probe failures before sending an alert email (default: 2). */
+export const ALERT_AFTER_FAILURES =
+  parseInt(process.env['ALERT_AFTER_FAILURES'] ?? '2', 10);
 
 const DEFAULT_REGION = 'eu-west-2';
 
@@ -40,13 +48,9 @@ export const alertConfig = process.env['ALERT_FROM'] && process.env['ALERT_TO']
     }
   : null;
 
-export const ALERT_SILENCE_SECS =
-  parseInt(process.env['ALERT_SILENCE_SECS'] ?? '60', 10);
-
 export const dynamoConfig = process.env['DYNAMODB_TABLE']
   ? {
       tableName: process.env['DYNAMODB_TABLE']!,
       region: process.env['AWS_REGION_DYNAMO'] ?? process.env['AWS_REGION'] ?? DEFAULT_REGION,
-      flushIntervalMs: parseInt(process.env['DYNAMODB_FLUSH_SECS'] ?? '30', 10) * 1_000,
     }
   : null;
