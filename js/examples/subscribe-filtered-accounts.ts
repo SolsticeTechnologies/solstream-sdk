@@ -1,82 +1,93 @@
 /**
- * Example: Subscribe to accounts with advanced filters
+ * Example: Subscribe to accounts with advanced filter predicates.
  *
- * Demonstrates:
- *   - Filtering by data size
- *   - Filtering by lamport balance
- *   - Filtering by memory comparison (memcmp)
+ * Mirrors the Rust SDK advanced_filters example. Combines multiple named
+ * account filters in a single subscription — the server evaluates them
+ * independently and tags each update with the filter name(s) it matched.
+ *
+ * Filters:
+ *   "spl-token-accounts" — SPL Token accounts (owned by token program, 165 B)
+ *   "funded-wallets"     — System accounts with > 1 SOL
+ *   "mint-disc"          — Accounts whose first byte is 0x01 (SPL Mint disc.)
  *
  * Set the following environment variables before running:
- *   SOLSTREAM_ENDPOINT  - gRPC endpoint
+ *   SOLSTREAM_ENDPOINT  - gRPC endpoint, e.g. https://stream.example.com
  *   SOLSTREAM_API_KEY   - Your API key
  *
  * Run:
  *   npx ts-node examples/subscribe-filtered-accounts.ts
  */
 
-import {
-  subscribe,
-  CommitmentLevel,
-  SolstreamConfig,
-  SubscribeUpdate,
-} from '../src';
+import { SolstreamClient, CommitmentLevel } from '../src';
+import type { ReconnectConfig } from '../src';
 
-// Stake program
-const STAKE_PROGRAM = 'Stake11111111111111111111111111111111111111';
+const TOKEN_PROGRAM  = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+const SYSTEM_PROGRAM = '11111111111111111111111111111111';
+const ONE_SOL = 1_000_000_000n;
 
 async function main() {
-  const config: SolstreamConfig = {
-    endpoint: process.env['SOLSTREAM_ENDPOINT'] ?? 'https://stream.example.com',
-    apiKey: process.env['SOLSTREAM_API_KEY'],
-    replay: true,
-    maxReconnectAttempts: 10,
-    baseReconnectDelayMs: 500,
-    maxReconnectDelayMs: 15_000,
+  const endpoint = process.env['SOLSTREAM_ENDPOINT'] ?? 'https://stream.example.com';
+  const apiKey   = process.env['SOLSTREAM_API_KEY'] ?? '';
+
+  const client = SolstreamClient.connect(endpoint, apiKey);
+
+  const reconnect: ReconnectConfig = {
+    maxAttempts: 10,
+    initialBackoffMs: 500,
+    maxBackoffMs: 15_000,
+    backoffFactor: 2.0,
   };
 
-  const stream = await subscribe(
-    config,
-    {
-      accounts: {
-        // Only stake accounts with > 1 SOL
-        'funded-stake-accounts': {
-          account: [],
-          owner: [STAKE_PROGRAM],
-          filters: [
-            {
-              lamports: { gt: 1_000_000_000 }, // > 1 SOL in lamports
-            },
-          ],
-        },
-      },
-      commitment: CommitmentLevel.FINALIZED,
-    },
-    async (update: SubscribeUpdate) => {
-      if (!update.account) return;
+  const stream = client
+    .messages()
+    // All SPL token accounts: owned by token program, exactly 165 bytes.
+    .accounts('spl-token-accounts')
+      .owner(TOKEN_PROGRAM)
+      .dataSize(165)
+      .tokenAccountState()
+      .build()
+    // System-owned accounts with more than 1 SOL.
+    .accounts('funded-wallets')
+      .owner(SYSTEM_PROGRAM)
+      .lamportsGt(ONE_SOL)
+      .build()
+    // Accounts whose data starts with byte 0x01 — SPL Mint discriminator.
+    .accounts('mint-disc')
+      .owner(TOKEN_PROGRAM)
+      .memcmp(0, new Uint8Array([0x01]))
+      .build()
+    .commitment(CommitmentLevel.CONFIRMED)
+    .reconnect(reconnect)
+    .subscribe();
 
-      const { account, slot } = update.account;
-      const pubkey = account?.pubkey
-        ? Buffer.from(account.pubkey).toString('base64')
-        : '<unknown>';
-
-      console.log(
-        `[slot ${slot}] Stake account ${pubkey}`,
-        `lamports=${account?.lamports}`,
-        `dataLen=${account?.data.length ?? 0}`,
-      );
-    },
-    (error: Error) => {
-      console.error('Stream error:', error.message);
-    },
+  console.log(
+    'filter'.padEnd(20),
+    'pubkey'.padEnd(44),
+    'lamports'.padStart(14),
+    'data(B)'.padStart(9),
   );
 
-  console.log(`Filtered account stream started (id=${stream.id}). Press Ctrl+C to stop.`);
-
   process.on('SIGINT', () => {
-    console.log('\nCancelling stream…');
+    console.log('\nCancelling…');
     stream.cancel();
     process.exit(0);
   });
+
+  while (true) {
+    const update = await stream.next();
+    if (!update) break;
+    const filters = update.filters.join(',');
+    const payload = update.decode();
+    if (payload.kind === 'account') {
+      const acc = payload.data;
+      console.log(
+        filters.padEnd(20),
+        acc.pubkey.padEnd(44),
+        String(acc.lamports).padStart(14),
+        String(acc.data.length).padStart(9),
+      );
+    }
+  }
 }
 
 main().catch((err) => {
