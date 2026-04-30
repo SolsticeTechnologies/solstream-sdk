@@ -1,10 +1,8 @@
 /**
  * Solstream SDK — gRPC streaming client
  *
- * Provides subscribe() and subscribeBlocks() with:
- *   - Automatic reconnection with exponential back-off
- *   - Attempt counter reset on every successful message (matches Rust SDK behaviour)
- *   - Optional slot-replay on reconnect
+ * Primary API  : SolstreamClient class (stateful, single channel, builders)
+ * Legacy API   : subscribe() / subscribeBlocks() callback functions
  */
 
 import * as grpc from '@grpc/grpc-js';
@@ -20,6 +18,7 @@ import type {
   SubscribeBlockUpdate,
   StreamHandle,
 } from './types';
+import { RequestBuilder, BlockRequestBuilder } from './builder';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Proto loading
@@ -390,4 +389,73 @@ function extractSlot(update: any): bigint | undefined {
   if (update?.blockMeta?.blockInfo?.slot !== undefined)
     return BigInt(update.blockMeta.blockInfo.slot);
   return undefined;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SolstreamClient — stateful client (primary API)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Stateful gRPC client.  One instance owns one channel; all streams opened
+ * from it reuse that channel rather than creating a new TCP connection.
+ *
+ * @example
+ * ```ts
+ * import { SolstreamClient, CommitmentLevel } from '@solstice/solstream-sdk';
+ *
+ * const client = await SolstreamClient.connect('https://stream.example.com', 'YOUR_KEY');
+ *
+ * const stream = client
+ *   .messages()
+ *   .slots('all')
+ *     .build()
+ *   .commitment(CommitmentLevel.CONFIRMED)
+ *   .subscribe();
+ *
+ * while (true) {
+ *   const update = await stream.next();
+ *   if (!update) break;
+ *   const payload = update.decode();
+ *   if (payload.kind === 'slot') console.log(payload.data.slot);
+ * }
+ * ```
+ */
+export class SolstreamClient {
+  private constructor(
+    private readonly grpcClient: grpc.Client,
+    private readonly callMeta: grpc.Metadata | undefined,
+  ) {}
+
+  /**
+   * Connect to a SolStream server.
+   *
+   * @param endpoint - gRPC server address, e.g. `"https://stream.example.com"`
+   * @param apiKey   - ASCII API key
+   * @param channelOptions - Optional channel option overrides (merged over SDK defaults)
+   */
+  static connect(
+    endpoint: string,
+    apiKey: string,
+    channelOptions?: grpc.ChannelOptions,
+  ): SolstreamClient {
+    const { channelCreds, callMeta } = makeCredentials(endpoint, apiKey);
+    const host = normalizeEndpoint(endpoint);
+    const client = getServiceClient(host, channelCreds, channelOptions);
+    return new SolstreamClient(client, callMeta);
+  }
+
+  /** Begin building a `Subscribe` request (accounts, slots, transactions, block-metas, entries). */
+  messages(): RequestBuilder {
+    return new RequestBuilder(this.grpcClient, this.callMeta);
+  }
+
+  /** Begin building a `SubscribeBlocks` request for full block data. */
+  blocks(): BlockRequestBuilder {
+    return new BlockRequestBuilder(this.grpcClient, this.callMeta);
+  }
+
+  /** Close the underlying gRPC channel. */
+  close(): void {
+    this.grpcClient.close();
+  }
 }
