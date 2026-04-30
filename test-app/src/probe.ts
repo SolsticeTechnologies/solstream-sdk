@@ -5,12 +5,11 @@
  * disconnects.  The outer loop in each monitor calls these on a schedule.
  */
 
-import { subscribe, subscribeBlocks } from '@solstice/solstream-sdk';
+import { SolstreamClient, ClientError } from '@solstice/solstream-sdk';
 import type {
   SolstreamConfig,
   SubscribeRequest,
   SubscribeBlockRequest,
-  StreamHandle,
 } from '@solstice/solstream-sdk';
 
 import type { AlertConfig } from './alerter';
@@ -29,106 +28,56 @@ export interface ProbeResult {
   durationMs: number;
 }
 
-/** Connect, wait for the first SubscribeUpdate, then cancel. */
+/** Connect, wait for the first decoded update, then disconnect. */
 export async function probeSubscribe(
   config: SolstreamConfig,
   request: SubscribeRequest,
   timeoutMs: number,
 ): Promise<ProbeResult> {
   const startMs = Date.now();
-  // No reconnects during a probe — fail fast on connection error.
-  const probeConfig: SolstreamConfig = { ...config, maxReconnectAttempts: 0 };
-  let handle: StreamHandle | null = null;
-  let resolved = false;
-
-  return new Promise<ProbeResult>((resolve) => {
-    const done = (result: ProbeResult) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(timer);
-      handle?.cancel();
-      resolve(result);
-    };
-
-    const timer = setTimeout(() => {
-      done({
-        ok: false,
-        errorMessage: `no data within ${timeoutMs / 1000}s`,
-        durationMs: Date.now() - startMs,
-      });
-    }, timeoutMs);
-
-    subscribe(
-      probeConfig,
-      request,
-      (update) => {
-        const slot =
-          update.slot?.slotInfo?.slot ??
-          update.transaction?.slot ??
-          update.account?.slot ??
-          update.blockMeta?.blockInfo?.slot;
-        done({ ok: true, firstSlot: slot, durationMs: Date.now() - startMs });
-      },
-      (err) => {
-        done({ ok: false, errorMessage: err.message, durationMs: Date.now() - startMs });
-      },
-    )
-      .then((h) => {
-        handle = h;
-        if (resolved) h.cancel(); // timeout fired before subscribe returned
-      })
-      .catch((err) => {
-        done({ ok: false, errorMessage: String(err), durationMs: Date.now() - startMs });
-      });
-  });
+  const client = SolstreamClient.connect(config.endpoint, config.apiKey ?? '', config.channelOptions);
+  const stream = client.messages().withRawRequest(request).subscribe();
+  const timer = setTimeout(() => stream.cancel(), timeoutMs);
+  try {
+    const update = await stream.next();
+    clearTimeout(timer);
+    client.close();
+    if (!update) return { ok: false, errorMessage: 'stream ended with no data', durationMs: Date.now() - startMs };
+    return { ok: true, firstSlot: update.slot(), durationMs: Date.now() - startMs };
+  } catch (err) {
+    clearTimeout(timer);
+    client.close();
+    if (err instanceof ClientError && err.kind === 'cancelled') {
+      return { ok: false, errorMessage: `no data within ${timeoutMs / 1000}s`, durationMs: Date.now() - startMs };
+    }
+    return { ok: false, errorMessage: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startMs };
+  }
 }
 
-/** Connect, wait for the first SubscribeBlockUpdate, then cancel. */
+/** Connect, wait for the first decoded block, then disconnect. */
 export async function probeBlocks(
   config: SolstreamConfig,
   request: SubscribeBlockRequest,
   timeoutMs: number,
 ): Promise<ProbeResult> {
   const startMs = Date.now();
-  const probeConfig: SolstreamConfig = { ...config, maxReconnectAttempts: 0 };
-  let handle: StreamHandle | null = null;
-  let resolved = false;
-
-  return new Promise<ProbeResult>((resolve) => {
-    const done = (result: ProbeResult) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(timer);
-      handle?.cancel();
-      resolve(result);
-    };
-
-    const timer = setTimeout(() => {
-      done({
-        ok: false,
-        errorMessage: `no data within ${timeoutMs / 1000}s`,
-        durationMs: Date.now() - startMs,
-      });
-    }, timeoutMs);
-
-    subscribeBlocks(
-      probeConfig,
-      request,
-      (update) => {
-        done({ ok: true, firstSlot: update.block?.slot, durationMs: Date.now() - startMs });
-      },
-      (err) => {
-        done({ ok: false, errorMessage: err.message, durationMs: Date.now() - startMs });
-      },
-    )
-      .then((h) => {
-        handle = h;
-        if (resolved) h.cancel();
-      })
-      .catch((err) => {
-        done({ ok: false, errorMessage: String(err), durationMs: Date.now() - startMs });
-      });
-  });
+  const client = SolstreamClient.connect(config.endpoint, config.apiKey ?? '', config.channelOptions);
+  const stream = client.blocks().withRawRequest(request).subscribe();
+  const timer = setTimeout(() => stream.cancel(), timeoutMs);
+  try {
+    const update = await stream.next();
+    clearTimeout(timer);
+    client.close();
+    if (!update) return { ok: false, errorMessage: 'stream ended with no data', durationMs: Date.now() - startMs };
+    return { ok: true, firstSlot: update.block.slot, durationMs: Date.now() - startMs };
+  } catch (err) {
+    clearTimeout(timer);
+    client.close();
+    if (err instanceof ClientError && err.kind === 'cancelled') {
+      return { ok: false, errorMessage: `no data within ${timeoutMs / 1000}s`, durationMs: Date.now() - startMs };
+    }
+    return { ok: false, errorMessage: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startMs };
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
