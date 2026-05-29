@@ -117,6 +117,7 @@ export async function runProbeLoop(cfg: ProbeLoopConfig): Promise<never> {
       updatedAt: new Date().toISOString(),
       totalUpdates: successCount,
       updatesPerSec: '0.00',
+      consecutiveFailures,
     });
   };
 

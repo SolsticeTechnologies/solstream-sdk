@@ -20,6 +20,7 @@ export interface StatusRecord {
   updatedAt: string;
   totalUpdates: number;
   updatesPerSec: string;
+  consecutiveFailures: number;
 }
 
 let client: DynamoDBDocumentClient | null = null;
@@ -70,6 +71,7 @@ export function createStatusUpdater(
       updatedAt: new Date().toISOString(),
       totalUpdates,
       updatesPerSec: elapsedSecs > 0 ? (totalUpdates / elapsedSecs).toFixed(2) : '0.00',
+      consecutiveFailures: 0,
     };
     try {
       await writeStatus(tableName, region, record);
