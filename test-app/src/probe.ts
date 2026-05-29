@@ -164,7 +164,7 @@ export async function runProbeLoop(cfg: ProbeLoopConfig): Promise<never> {
       // panel reflects the real state.
       writeStatusRecord('SILENT').catch(console.error);
 
-      if (!alertSent && cfg.alertConfig) {
+      if (!alertSent && consecutiveFailures >= cfg.alertAfterFailures && cfg.alertConfig) {
         alertSent = true;
         const subject = `[Solstream] ALERT: ${cfg.monitorId} stream not responding`;
         const body = [
