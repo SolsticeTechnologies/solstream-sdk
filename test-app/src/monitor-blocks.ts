@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Probe: Block updates
  *
  *   npm run monitor:blocks
  *
  * Runs a probe every PROBE_INTERVAL_SECS (default 5 min):
- *   connect → wait for first block → disconnect → log → sleep.
+ *   connect â†’ wait for first block â†’ disconnect â†’ log â†’ sleep.
  */
 
 import {
@@ -51,3 +51,4 @@ main().catch((err) => {
   console.error('[FATAL]', err.message);
   process.exit(1);
 });
+

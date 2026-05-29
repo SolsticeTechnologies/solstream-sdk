@@ -1,6 +1,6 @@
 {
-  "name": "@solstice/solstream-sdk",
-  "version": "0.1.0",
+  "name": "@solstream-test/solstream-sdk",
+  "version": "0.1.2",
   "description": "High-performance gRPC client for real-time Solana data streaming via Solstream",
   "author": "Solstice Staking",
   "license": "MIT",
@@ -36,7 +36,7 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "clean": "rm -rf dist",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "prepublishOnly": "npm run clean && npm run build",
     "example:accounts": "ts-node examples/subscribe-accounts.ts",
     "example:transactions": "ts-node examples/subscribe-transactions.ts",

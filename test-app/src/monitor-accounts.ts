@@ -1,14 +1,14 @@
-/**
+﻿/**
  * Probe: Account updates
  *
  *   npm run monitor:accounts
  *
  * Runs a probe every PROBE_INTERVAL_SECS (default 5 min):
- *   connect → wait for first account update → disconnect → log → sleep.
+ *   connect â†’ wait for first account update â†’ disconnect â†’ log â†’ sleep.
  * Filters: SPL token accounts (165 B) and whale wallets (>10 000 SOL).
  */
 
-import { CommitmentLevel } from '@solstice/solstream-sdk';
+import { CommitmentLevel } from '@solstream-test/solstream-sdk';
 import {
   config,
   alertConfig,
@@ -68,3 +68,4 @@ main().catch((err) => {
   console.error('[FATAL]', err.message);
   process.exit(1);
 });
+

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * DynamoDB status store.
  * Writes monitor health/stats so an admin panel can display live status.
  *
@@ -78,7 +78,7 @@ export function createStatusUpdater(
     }
   };
 
-  // Periodic flush while ONLINE — only after first data has been received
+  // Periodic flush while ONLINE â€” only after first data has been received
   const interval = setInterval(() => {
     if (hasReceivedData && currentStatus === 'ONLINE') flush('ONLINE');
   }, flushIntervalMs);
@@ -118,3 +118,4 @@ export function createStatusUpdater(
     },
   };
 }
+

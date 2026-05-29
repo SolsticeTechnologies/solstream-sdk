@@ -1,14 +1,14 @@
-/**
+﻿/**
  * Probe: Slot updates
  *
  *   npm run monitor:slots
  *
  * Runs a probe every PROBE_INTERVAL_SECS (default 5 min):
- *   connect → wait for first slot update → disconnect → log → sleep.
+ *   connect â†’ wait for first slot update â†’ disconnect â†’ log â†’ sleep.
  * Writes status to DynamoDB and sends an alert if consecutive probes fail.
  */
 
-import { CommitmentLevel } from '@solstice/solstream-sdk';
+import { CommitmentLevel } from '@solstream-test/solstream-sdk';
 import {
   config,
   alertConfig,
@@ -51,3 +51,4 @@ main().catch((err) => {
   console.error('[FATAL]', err.message);
   process.exit(1);
 });
+

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Run all tests sequentially, each for TEST_DURATION_SECS seconds.
  *
  *   npm run test:all
@@ -15,7 +15,7 @@ const tests = [
   { name: 'Accounts',     script: 'test-accounts' },
 ];
 
-banner('SOLSTREAM SDK — Full Test Suite');
+banner('SOLSTREAM SDK â€” Full Test Suite');
 
 for (const test of tests) {
   separator();
@@ -28,9 +28,10 @@ for (const test of tests) {
       { stdio: 'inherit', cwd: path.join(__dirname, '..') },
     );
   } catch {
-    // ts-node exits with process.exit(0) which throws in execSync — that's fine
+    // ts-node exits with process.exit(0) which throws in execSync â€” that's fine
   }
 }
 
 separator();
 banner('All tests complete');
+

@@ -18,7 +18,7 @@
     "@aws-sdk/client-dynamodb": "^3.0.0",
     "@aws-sdk/client-ses": "^3.0.0",
     "@aws-sdk/lib-dynamodb": "^3.0.0",
-    "@solstice/solstream-sdk": "file:../js",
+    "@solstream-test/solstream-sdk": "^0.1.1",
     "dotenv": "^16.4.5"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Test: Transaction updates (non-vote)
  *
  *   npm run test:transactions
@@ -7,7 +7,7 @@
  * Stops after TEST_DURATION_SECS seconds (default 30).
  */
 
-import { subscribe, CommitmentLevel, SubscribeUpdate } from '@solstice/solstream-sdk';
+import { subscribe, CommitmentLevel, SubscribeUpdate } from '@solstream-test/solstream-sdk';
 import { config, TEST_DURATION_MS } from './config';
 import { banner, info, success, warn, error, stat, separator } from './logger';
 
@@ -52,12 +52,12 @@ async function main() {
 
       if (hasErr) {
         failCount++;
-        warn('TX', `slot=${slot}  sig=${sig}…  fee=${fee}  logs=${logCount}  [FAILED]`);
+        warn('TX', `slot=${slot}  sig=${sig}â€¦  fee=${fee}  logs=${logCount}  [FAILED]`);
       } else {
         successCount++;
         success(
           'TX',
-          `slot=${slot}  sig=${sig}…  fee=${fee}  logs=${logCount}` +
+          `slot=${slot}  sig=${sig}â€¦  fee=${fee}  logs=${logCount}` +
           (computeUnits !== undefined ? `  cu=${computeUnits}` : ''),
         );
       }
@@ -66,7 +66,7 @@ async function main() {
       for (const log of transaction?.transactionMeta?.logMessages ?? []) {
         const match = log.match(/^Program (\S+) invoke/);
         if (match?.[1]) {
-          const prog = match[1].slice(0, 12) + '…';
+          const prog = match[1].slice(0, 12) + 'â€¦';
           programCounts.set(prog, (programCounts.get(prog) ?? 0) + 1);
         }
       }
@@ -107,3 +107,4 @@ main().catch((err) => {
   error('FATAL', err.message);
   process.exit(1);
 });
+

@@ -1,25 +1,25 @@
-/**
+﻿/**
  * One-shot probe helpers for periodic health checks.
  *
  * Each probe: connects, waits for the first message (or timeout), then
  * disconnects.  The outer loop in each monitor calls these on a schedule.
  */
 
-import { SolstreamClient, ClientError } from '@solstice/solstream-sdk';
+import { SolstreamClient, ClientError } from '@solstream-test/solstream-sdk';
 import type {
   SolstreamConfig,
   SubscribeRequest,
   SubscribeBlockRequest,
-} from '@solstice/solstream-sdk';
+} from '@solstream-test/solstream-sdk';
 
 import type { AlertConfig } from './alerter';
 import { sendAlert } from './alerter';
 import { writeStatus, MonitorStatus } from './status-store';
 import { info, success, error } from './logger';
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Single-shot probe
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ProbeResult {
   ok: boolean;
@@ -80,9 +80,9 @@ export async function probeBlocks(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Probe loop
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ProbeLoopConfig {
   monitorId: string;
@@ -97,7 +97,7 @@ export interface ProbeLoopConfig {
 }
 
 /**
- * Run a probe loop forever: probe → write status → sleep → repeat.
+ * Run a probe loop forever: probe â†’ write status â†’ sleep â†’ repeat.
  * Never returns (process must be killed or receive SIGINT).
  */
 export async function runProbeLoop(cfg: ProbeLoopConfig): Promise<never> {
@@ -124,14 +124,14 @@ export async function runProbeLoop(cfg: ProbeLoopConfig): Promise<never> {
   await writeStatusRecord('STARTING').catch(() => {});
 
   process.on('SIGINT', () => {
-    info('PROBE', 'received SIGINT — shutting down');
+    info('PROBE', 'received SIGINT â€” shutting down');
     process.exit(0);
   });
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
     probeCount++;
-    info('PROBE', `#${probeCount} starting…`);
+    info('PROBE', `#${probeCount} startingâ€¦`);
 
     const result = await cfg.probe();
 
@@ -157,13 +157,11 @@ export async function runProbeLoop(cfg: ProbeLoopConfig): Promise<never> {
       }
     } else {
       consecutiveFailures++;
-      error('PROBE', `#${probeCount} failed (${consecutiveFailures} in a row) — ${result.errorMessage}`);
+      error('PROBE', `#${probeCount} failed (${consecutiveFailures} in a row) â€” ${result.errorMessage}`);
 
-      // Only flip DynamoDB to SILENT once we reach the alert threshold so that
-      // a single transient probe failure doesn't show SILENT to the admin panel.
-      if (consecutiveFailures >= cfg.alertAfterFailures) {
-        writeStatusRecord('SILENT').catch(console.error);
-      }
+      // Always write SILENT immediately so updatedAt stays fresh and the admin
+      // panel reflects the real state. Email alert still requires alertAfterFailures.
+      writeStatusRecord('SILENT').catch(console.error);
 
       if (!alertSent && consecutiveFailures >= cfg.alertAfterFailures && cfg.alertConfig) {
         alertSent = true;
@@ -190,3 +188,4 @@ export async function runProbeLoop(cfg: ProbeLoopConfig): Promise<never> {
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+

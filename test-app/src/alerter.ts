@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Email alerter via AWS SES.
  * Sends a notification when a monitor stream goes silent.
  */
@@ -53,7 +53,7 @@ export function createHeartbeat(
   const reset = () => {
     if (timer) clearTimeout(timer);
 
-    // Data resumed — send recovery email if we had previously alerted
+    // Data resumed â€” send recovery email if we had previously alerted
     if (alertSent) {
       alertSent = false;
       statusUpdater?.markOnline();
@@ -87,7 +87,7 @@ export function createHeartbeat(
 
       try {
         await sendAlert(alertConfig, subject, body);
-        console.error(`[ALERT] Email sent — ${monitorName} stream silent for ${silenceSecs}s`);
+        console.error(`[ALERT] Email sent â€” ${monitorName} stream silent for ${silenceSecs}s`);
       } catch (err) {
         console.error('[ALERT] Failed to send alert email:', err);
       }
@@ -98,3 +98,4 @@ export function createHeartbeat(
   // This prevents SILENT being written to DynamoDB during container startup/reconnect.
   return reset;
 }
+

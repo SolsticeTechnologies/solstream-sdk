@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Test: Account updates
  *
  *   npm run test:accounts
@@ -7,7 +7,7 @@
  * Stops after TEST_DURATION_SECS seconds (default 30).
  */
 
-import { subscribe, CommitmentLevel, SubscribeUpdate } from '@solstice/solstream-sdk';
+import { subscribe, CommitmentLevel, SubscribeUpdate } from '@solstream-test/solstream-sdk';
 import { config, TEST_DURATION_MS } from './config';
 import { banner, info, success, error, stat, separator, lamportsToSol } from './logger';
 
@@ -41,7 +41,7 @@ async function main() {
 
       success(
         'ACCOUNT',
-        `slot=${slot}  pubkey=${pubkey}…  ` +
+        `slot=${slot}  pubkey=${pubkey}â€¦  ` +
         `balance=${lamportsToSol(account?.lamports)}  ` +
         `dataLen=${account?.data?.length ?? 0}B` +
         (isStartup ? '  [startup]' : ''),
@@ -77,3 +77,4 @@ main().catch((err) => {
   error('FATAL', err.message);
   process.exit(1);
 });
+

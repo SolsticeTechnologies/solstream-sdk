@@ -1,5 +1,5 @@
-/**
- * Minimal coloured terminal logger — no extra dependencies.
+﻿/**
+ * Minimal coloured terminal logger â€” no extra dependencies.
  * Uses ANSI escape codes directly.
  */
 
@@ -21,7 +21,7 @@ function ts(): string {
 }
 
 export function banner(title: string): void {
-  const line = '─'.repeat(60);
+  const line = 'â”€'.repeat(60);
   console.log(`\n${C.cyan}${C.bold}${line}${C.reset}`);
   console.log(`${C.cyan}${C.bold}  ${title}${C.reset}`);
   console.log(`${C.cyan}${C.bold}${line}${C.reset}\n`);
@@ -51,14 +51,14 @@ export function stat(label: string, value: unknown, unit = ''): void {
 }
 
 export function separator(): void {
-  console.log(`${C.dim}${'·'.repeat(60)}${C.reset}`);
+  console.log(`${C.dim}${'Â·'.repeat(60)}${C.reset}`);
 }
 
 /** Truncate a base58/base64 key for display */
 export function short(val: Uint8Array | string | undefined, len = 8): string {
   if (!val) return '<null>';
   const s = typeof val === 'string' ? val : Buffer.from(val).toString('base58' as BufferEncoding);
-  return `${s.slice(0, len)}…`;
+  return `${s.slice(0, len)}â€¦`;
 }
 
 /** Format bigint lamports as SOL */
@@ -66,3 +66,4 @@ export function lamportsToSol(lamports: bigint | number | undefined): string {
   if (lamports === undefined) return '?';
   return (Number(lamports) / 1e9).toFixed(4) + ' SOL';
 }
+

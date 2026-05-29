@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Test: Block updates
  *
  *   npm run test:blocks
@@ -7,7 +7,7 @@
  * Stops after TEST_DURATION_SECS seconds (default 30).
  */
 
-import { subscribeBlocks, SubscribeBlockUpdate } from '@solstice/solstream-sdk';
+import { subscribeBlocks, SubscribeBlockUpdate } from '@solstream-test/solstream-sdk';
 import { config, TEST_DURATION_MS } from './config';
 import { banner, info, success, error, stat, separator, lamportsToSol } from './logger';
 
@@ -47,7 +47,7 @@ async function main() {
 
       success(
         'BLOCK',
-        `slot=${slot}  hash=${blockhash}…  ` +
+        `slot=${slot}  hash=${blockhash}â€¦  ` +
         `txns=${txCount}  fees=${lamportsToSol(blockFees)}` +
         (blockHeight !== undefined ? `  height=${blockHeight}` : '') +
         (blockTime !== undefined ? `  time=${new Date(Number(blockTime) * 1000).toISOString().slice(11, 19)}` : ''),
@@ -81,3 +81,4 @@ main().catch((err) => {
   error('FATAL', err.message);
   process.exit(1);
 });
+

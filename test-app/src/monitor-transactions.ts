@@ -1,14 +1,14 @@
-/**
+﻿/**
  * Probe: Transaction updates
  *
  *   npm run monitor:transactions
  *
  * Runs a probe every PROBE_INTERVAL_SECS (default 5 min):
- *   connect → wait for first transaction update → disconnect → log → sleep.
+ *   connect â†’ wait for first transaction update â†’ disconnect â†’ log â†’ sleep.
  * Filters: non-vote token-program txns and system-program txns.
  */
 
-import { CommitmentLevel } from '@solstice/solstream-sdk';
+import { CommitmentLevel } from '@solstream-test/solstream-sdk';
 import {
   config,
   alertConfig,
@@ -70,3 +70,4 @@ main().catch((err) => {
   console.error('[FATAL]', err.message);
   process.exit(1);
 });
+

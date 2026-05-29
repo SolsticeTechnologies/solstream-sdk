@@ -1,6 +1,6 @@
-import * as dotenv from 'dotenv';
+﻿import * as dotenv from 'dotenv';
 import * as path from 'path';
-import type { SolstreamConfig } from '@solstice/solstream-sdk';
+import type { SolstreamConfig } from '@solstream-test/solstream-sdk';
 
 // Load .env from test-app root
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -54,3 +54,4 @@ export const dynamoConfig = process.env['DYNAMODB_TABLE']
       region: process.env['AWS_REGION_DYNAMO'] ?? process.env['AWS_REGION'] ?? DEFAULT_REGION,
     }
   : null;
+

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Test: Slot updates
  *
  *   npm run test:slots
@@ -7,7 +7,7 @@
  * Stops after TEST_DURATION_SECS seconds (default 30).
  */
 
-import { subscribe, CommitmentLevel, SubscribeUpdate } from '@solstice/solstream-sdk';
+import { subscribe, CommitmentLevel, SubscribeUpdate } from '@solstream-test/solstream-sdk';
 import { config, TEST_DURATION_MS } from './config';
 import { banner, info, success, warn, error, stat, separator } from './logger';
 
@@ -66,7 +66,7 @@ async function main() {
     stat('Total slot updates', count);
     stat('Updates/sec', (count / elapsedSecs).toFixed(1));
     if (count > 0) {
-      stat('Slot range', `${minSlot} → ${maxSlot}`);
+      stat('Slot range', `${minSlot} â†’ ${maxSlot}`);
     }
     info('STATUS BREAKDOWN', '');
     for (const [status, c] of Object.entries(statusCounts).sort((a, b) => b[1] - a[1])) {
@@ -84,3 +84,4 @@ main().catch((err) => {
   error('FATAL', err.message);
   process.exit(1);
 });
+
