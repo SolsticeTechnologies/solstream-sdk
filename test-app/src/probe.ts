@@ -160,10 +160,10 @@ export async function runProbeLoop(cfg: ProbeLoopConfig): Promise<never> {
       error('PROBE', `#${probeCount} failed (${consecutiveFailures} in a row) â€” ${result.errorMessage}`);
 
       // Always write SILENT immediately so updatedAt stays fresh and the admin
-      // panel reflects the real state. Email alert still requires alertAfterFailures.
+      // panel reflects the real state.
       writeStatusRecord('SILENT').catch(console.error);
 
-      if (!alertSent && consecutiveFailures >= cfg.alertAfterFailures && cfg.alertConfig) {
+      if (!alertSent && cfg.alertConfig) {
         alertSent = true;
         const subject = `[Solstream] ALERT: ${cfg.monitorId} stream not responding`;
         const body = [
