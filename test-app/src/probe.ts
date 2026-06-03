@@ -164,16 +164,19 @@ export async function runProbeLoop(cfg: ProbeLoopConfig): Promise<never> {
       // panel reflects the real state.
       writeStatusRecord('SILENT').catch(console.error);
 
-      if (!alertSent && consecutiveFailures >= cfg.alertAfterFailures && cfg.alertConfig) {
+      // Send alert on first failure — don't wait for threshold so a prolonged
+      // outage is never missed. alertSent prevents duplicate emails until recovery.
+      if (!alertSent && cfg.alertConfig) {
         alertSent = true;
         const subject = `[Solstream] ALERT: ${cfg.monitorId} stream not responding`;
         const body = [
           `Monitor: ${cfg.monitorId}`,
-          `Status: NO DATA`,
+          `Status: SILENT`,
           `Time: ${new Date().toISOString()}`,
           '',
-          `${consecutiveFailures} consecutive probes failed.`,
+          `Probe failed after ${consecutiveFailures} attempt(s).`,
           `Last error: ${result.errorMessage}`,
+          `Endpoint: ${cfg.endpoint}`,
           '',
           'Check the EC2 instance and Solstream endpoint.',
         ].join('\n');
