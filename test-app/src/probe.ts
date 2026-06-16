@@ -167,7 +167,6 @@ export async function runProbeLoop(cfg: ProbeLoopConfig): Promise<never> {
       // Send alert on first failure — don't wait for threshold so a prolonged
       // outage is never missed. alertSent prevents duplicate emails until recovery.
       if (!alertSent && cfg.alertConfig) {
-        alertSent = true;
         const subject = `[Solstream] ALERT: ${cfg.monitorId} stream not responding`;
         const body = [
           `Monitor: ${cfg.monitorId}`,
@@ -180,7 +179,9 @@ export async function runProbeLoop(cfg: ProbeLoopConfig): Promise<never> {
           '',
           'Check the EC2 instance and Solstream endpoint.',
         ].join('\n');
-        sendAlert(cfg.alertConfig, subject, body).catch(console.error);
+        sendAlert(cfg.alertConfig, subject, body)
+          .then(() => { alertSent = true; })
+          .catch((err) => { console.error('[ALERT] Failed to send alert email:', err); });
       }
     }
 
